@@ -111,7 +111,7 @@ async def test_endpoint():
     # Test ERLDC connection
     try:
         erldc_api_url = "https://app.erldc.in/api/LiveDataScheduler/Get/RegionStatistics"
-        response_erldc = session.get(erldc_api_url)
+        response_erldc = session.get(erldc_api_url, timeout=60)
         logger.info(f"ERLDC Status Code: {response_erldc.status_code}")
         logger.info(f"ERLDC Headers: {response_erldc.headers}")
         results["erldc"] = {
@@ -139,7 +139,7 @@ async def test_endpoint():
 async def get_erldc_data():
     try:
         erldc_api_url = "https://app.erldc.in/api/LiveDataScheduler/Get/RegionStatistics"
-        response_erldc = session.get(erldc_api_url)
+        response_erldc = session.get(erldc_api_url, timeout=60)
         response_erldc.raise_for_status()  # Raise an exception for HTTP errors
         data_erldc = response_erldc.json()
         
@@ -174,7 +174,7 @@ async def debug_erldc():
         # Test initial connection
         response["connection_test"] = "Starting"
         try:
-            r = session.get(erldc_api_url, timeout=5)
+            r = session.get(erldc_api_url, timeout=60)
             response["status_code"] = r.status_code
             response["headers"] = dict(r.headers)
             response["content_type"] = r.headers.get('Content-Type')
@@ -202,7 +202,7 @@ async def debug_erldc():
 async def get_srldc_data():
     try:
         srldc_api_url = "https://www.srldc.in/indexPageDataInEvery5min"
-        response_srldc = session.get(srldc_api_url)
+        response_srldc = session.get(srldc_api_url, timeout=60)
         data_srldc = response_srldc.json()
         
         # Add processing timestamp
@@ -224,7 +224,7 @@ async def get_srldc_data():
 async def get_nrldc_data():
     try:
         nrldc_url = "https://newnr.nrldc.in/"
-        response_nrldc = session.get(nrldc_url)
+        response_nrldc = session.get(nrldc_url, timeout=60)
         
         soup_nrldc = BeautifulSoup(response_nrldc.text, 'html.parser')
         content_divs = soup_nrldc.find_all('div', class_='content')
@@ -255,7 +255,7 @@ async def get_nrldc_data():
 async def get_wrldc_data():
     try:
         wrldc_url = "https://wrldc.in/content/English/index.aspx"
-        wrldc_response = session.get(wrldc_url)
+        wrldc_response = session.get(wrldc_url, timeout=60)
         
         wrldc_soup = BeautifulSoup(wrldc_response.text, 'html.parser')
         box_elements = wrldc_soup.find_all('div', class_='box')
