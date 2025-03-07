@@ -1,9 +1,18 @@
 services:
   - type: web
-    name: power-grid-api
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --port 10000
+    name: griddatahub
+    runtime: docker
+    repo: https://github.com/imp-joshi/griddatahub
+    branch: main
+    dockerfilePath: ./dockerfile
+    healthCheckPath: /
     envVars:
+      - key: PORT
+        value: 10000
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.12.9
+      - key: LOG_LEVEL
+        value: info
+    autoDeploy: true
+    plan: starter
+    numInstances: 1
