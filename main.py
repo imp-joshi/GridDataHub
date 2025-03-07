@@ -134,11 +134,6 @@ async def test_endpoint():
     
     return results
 
-
-
-
-
-
 # Define API endpoints
 @app.get("/erldc", response_model=ERLDCData)
 async def get_erldc_data():
@@ -170,7 +165,38 @@ async def get_erldc_data():
         logger.error(f"An error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch ERLDC data: {str(e)}")
 
-
+@app.get("/debug/erldc")
+async def debug_erldc():
+    try:
+        erldc_api_url = "https://app.erldc.in/api/LiveDataScheduler/Get/RegionStatistics"
+        response = {}
+        
+        # Test initial connection
+        response["connection_test"] = "Starting"
+        try:
+            r = session.get(erldc_api_url, timeout=5)
+            response["status_code"] = r.status_code
+            response["headers"] = dict(r.headers)
+            response["content_type"] = r.headers.get('Content-Type')
+            response["connection_test"] = "Success"
+            
+            # Try to parse the response
+            response["parse_test"] = "Starting"
+            try:
+                data = r.json()
+                response["data_keys"] = list(data.keys())
+                response["parse_test"] = "Success"
+            except Exception as e:
+                response["parse_test"] = "Failed"
+                response["parse_error"] = str(e)
+                response["raw_content"] = r.text[:200]
+        except Exception as e:
+            response["connection_test"] = "Failed"
+            response["connection_error"] = str(e)
+        
+        return response
+    except Exception as e:
+        return {"overall_error": str(e)}
 
 @app.get("/srldc", response_model=SRLDCData)
 async def get_srldc_data():
