@@ -34,10 +34,10 @@ pip install fastapi uvicorn requests beautifulsoup4 pydantic urllib3
 Start the API server using uvicorn:
 
 ```bash
-uvicorn api_server:app --reload
+uvicorn main:app --reload
 ```
 
-The server will run on [http://127.0.0.1:8000](http://127.0.0.1:8000).
+The server will run on [http://127.0.0.1:1000](http://127.0.0.1:10000).
 
 ### API Endpoints
 
