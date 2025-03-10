@@ -1,17 +1,17 @@
 from fastapi import FastAPI, HTTPException
 import requests
 from bs4 import BeautifulSoup
-import xml.etree.ElementTree as ET
 import urllib3
 from requests.adapters import HTTPAdapter, Retry
 from urllib3.util.ssl_ import create_urllib3_context
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
+from typing import Optional
 from datetime import datetime
 import logging
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 # Create a custom adapter to handle SSL
 class CustomAdapter(HTTPAdapter):
@@ -19,20 +19,21 @@ class CustomAdapter(HTTPAdapter):
         context = create_urllib3_context()
         context.options |= 0x4  # Enable legacy renegotiation
         context.check_hostname = False
-        kwargs['ssl_context'] = context
+        kwargs["ssl_context"] = context
         return super(CustomAdapter, self).init_poolmanager(*args, **kwargs)
+
 
 # Create a session with the custom adapter and retry strategy
 retry_strategy = Retry(
     total=3,  # Number of retries
     backoff_factor=1,  # Wait time between retries
     status_forcelist=[429, 500, 502, 503, 504],  # Retry on these status codes
-    allowed_methods=["HEAD", "GET", "OPTIONS"]  # Retry only on these methods
+    allowed_methods=["HEAD", "GET", "OPTIONS"],  # Retry only on these methods
 )
 adapter = CustomAdapter(max_retries=retry_strategy)
 session = requests.Session()
 session.verify = False
-session.mount('https://', adapter)
+session.mount("https://", adapter)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +43,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Power Grid Data API",
     description="API for retrieving data from various regional power load dispatch centers",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 
@@ -93,21 +94,19 @@ class AllRegionsData(BaseModel):
     timestamp: str
 
 
-
-
-
-#debug
-
 @app.get("/")
 async def root():
-    return {"status": "API is running", "routes": ["/erldc", "/srldc", "/nrldc", "/wrldc", "/all"]}
+    return {
+        "status": "API is running",
+        "routes": ["/erldc", "/srldc", "/nrldc", "/wrldc", "/all"],
+    }
 
 
 @app.get("/test")
 async def test_endpoint():
     logger.info("Test endpoint accessed")
     results = {}
-    
+
     # Test ERLDC connection
     try:
         erldc_api_url = "https://app.erldc.in/api/LiveDataScheduler/Get/RegionStatistics"
@@ -116,23 +115,27 @@ async def test_endpoint():
         logger.info(f"ERLDC Headers: {response_erldc.headers}")
         results["erldc"] = {
             "status": response_erldc.status_code,
-            "content_type": response_erldc.headers.get('Content-Type'),
-            "response_size": len(response_erldc.content)
+            "content_type": response_erldc.headers.get("Content-Type"),
+            "response_size": len(response_erldc.content),
         }
         try:
             # Try to parse as JSON to see if that works
-            json_data = response_erldc.json()
+            response_json = response_erldc.json()
             results["erldc"]["json_parse"] = "success"
-        except:
+            results["erldc"]["json_data"] = response_json 
+        except Exception as e:
+            logger.error(f"ERLDC JSON Parse Error: {str(e)}")
             results["erldc"]["json_parse"] = "failed"
-            results["erldc"]["raw_content"] = response_erldc.text[:100] + "..." # First 100 chars
+            results["erldc"]["json_error"] = str(e)
+            results["erldc"]["raw_content"] = response_erldc.text[:100] + "..."  # First 100 chars
     except Exception as e:
         logger.error(f"ERLDC Test Error: {str(e)}")
-        results["erldc"] = {"error": str(e)}
-    
+        results["erldc"] = {"connection_error": str(e)}
+
     # Add similar tests for other endpoints
-    
+
     return results
+
 
 # Define API endpoints
 @app.get("/erldc", response_model=ERLDCData)
@@ -142,10 +145,10 @@ async def get_erldc_data():
         response_erldc = session.get(erldc_api_url, timeout=60)
         response_erldc.raise_for_status()  # Raise an exception for HTTP errors
         data_erldc = response_erldc.json()
-        
+
         # Log the raw data for debugging
         logger.info(f"ERLDC raw data: {data_erldc}")
-        
+
         # Map the response to the ERLDCData model
         erldc_data = ERLDCData(
             StatId=data_erldc.get("StatId", 0),
@@ -154,9 +157,9 @@ async def get_erldc_data():
             Freq=data_erldc.get("Freq", ""),
             RevNo=data_erldc.get("RevNo", ""),
             DemandMet=data_erldc.get("DemandMet", ""),
-            DSMMet=data_erldc.get("DSMMet", "")
+            DSMMet=data_erldc.get("DSMMet", ""),
         )
-        
+
         return erldc_data
     except requests.exceptions.RequestException as e:
         logger.error(f"HTTP error occurred: {str(e)}")
@@ -165,21 +168,22 @@ async def get_erldc_data():
         logger.error(f"An error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch ERLDC data: {str(e)}")
 
+
 @app.get("/debug/erldc")
 async def debug_erldc():
     try:
         erldc_api_url = "https://app.erldc.in/api/LiveDataScheduler/Get/RegionStatistics"
         response = {}
-        
+
         # Test initial connection
         response["connection_test"] = "Starting"
         try:
             r = session.get(erldc_api_url, timeout=60)
             response["status_code"] = r.status_code
             response["headers"] = dict(r.headers)
-            response["content_type"] = r.headers.get('Content-Type')
+            response["content_type"] = r.headers.get("Content-Type")
             response["connection_test"] = "Success"
-            
+
             # Try to parse the response
             response["parse_test"] = "Starting"
             try:
@@ -193,10 +197,11 @@ async def debug_erldc():
         except Exception as e:
             response["connection_test"] = "Failed"
             response["connection_error"] = str(e)
-        
+
         return response
     except Exception as e:
         return {"overall_error": str(e)}
+
 
 @app.get("/srldc", response_model=SRLDCData)
 async def get_srldc_data():
@@ -204,17 +209,17 @@ async def get_srldc_data():
         srldc_api_url = "https://www.srldc.in/indexPageDataInEvery5min"
         response_srldc = session.get(srldc_api_url, timeout=60)
         data_srldc = response_srldc.json()
-        
+
         # Add processing timestamp
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data_srldc["timestamp"] = current_time
-        
+
         # Remove complex fields that might cause issues
-        if 'localDate' in data_srldc:
-            del data_srldc['localDate']
-        if 'localDateForUpdate' in data_srldc:
-            del data_srldc['localDateForUpdate']
-            
+        if "localDate" in data_srldc:
+            del data_srldc["localDate"]
+        if "localDateForUpdate" in data_srldc:
+            del data_srldc["localDateForUpdate"]
+
         return data_srldc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch SRLDC data: {str(e)}")
@@ -225,19 +230,19 @@ async def get_nrldc_data():
     try:
         nrldc_url = "https://newnr.nrldc.in/"
         response_nrldc = session.get(nrldc_url, timeout=60)
-        
-        soup_nrldc = BeautifulSoup(response_nrldc.text, 'html.parser')
-        content_divs = soup_nrldc.find_all('div', class_='content')
-        
+
+        soup_nrldc = BeautifulSoup(response_nrldc.text, "html.parser")
+        content_divs = soup_nrldc.find_all("div", class_="content")
+
         result = {}
         for content_div in content_divs:
-            h2 = content_div.find('h2', class_='m-0')
-            p = content_div.find('p')
+            h2 = content_div.find("h2", class_="m-0")
+            p = content_div.find("p")
             if h2 and p:
-                key = h2.text.strip().lower().replace(' ', '_')
+                key = h2.text.strip().lower().replace(" ", "_")
                 value = p.text.strip()
                 result[key] = value
-                
+
         return {
             "frequency": result.get("frequency", "N/A"),
             "all_india_demand": result.get("all_india_demand", "N/A"),
@@ -251,73 +256,77 @@ async def get_nrldc_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch NRLDC data: {str(e)}")
 
+
 @app.get("/wrldc", response_model=WRLDCData)
 async def get_wrldc_data():
     try:
         wrldc_url = "https://wrldc.in/content/English/index.aspx"
         wrldc_response = session.get(wrldc_url, timeout=60)
-        
-        wrldc_soup = BeautifulSoup(wrldc_response.text, 'html.parser')
-        box_elements = wrldc_soup.find_all('div', class_='box')
-        
+
+        wrldc_soup = BeautifulSoup(wrldc_response.text, "html.parser")
+        box_elements = wrldc_soup.find_all("div", class_="box")
+
         data_dict = {}
         for box in box_elements:
-            #span_text = box.find('span').text.strip()
-            strong_element = box.find('strong')
-            
+            # span_text = box.find('span').text.strip()
+            strong_element = box.find("strong")
+
             if strong_element:
-                data_id = strong_element.get('id')
+                data_id = strong_element.get("id")
                 data_value = strong_element.text.strip()
-                if data_id == 'dataDateTime':
-                    data_dict['date_time'] = data_value
-                elif data_id == 'dataDemand':
-                    data_dict['demand'] = data_value
-                elif data_id == 'dataFrequency':
-                    data_dict['frequency'] = data_value
-                elif data_id == 'dataDeviationRate':
-                    data_dict['deviation_rate'] = data_value
-                elif data_id == 'dataRenewable':
-                    data_dict['renewable'] = data_value
-                elif data_id == 'dataRevision':
-                    data_dict['revision_nos'] = data_value
-        
+                if data_id == "dataDateTime":
+                    data_dict["date_time"] = data_value
+                elif data_id == "dataDemand":
+                    data_dict["demand"] = data_value
+                elif data_id == "dataFrequency":
+                    data_dict["frequency"] = data_value
+                elif data_id == "dataDeviationRate":
+                    data_dict["deviation_rate"] = data_value
+                elif data_id == "dataRenewable":
+                    data_dict["renewable"] = data_value
+                elif data_id == "dataRevision":
+                    data_dict["revision_nos"] = data_value
+
         return data_dict
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch WRLDC data: {str(e)}")
+
 
 @app.get("/all", response_model=AllRegionsData)
 async def get_all_data():
     try:
         # Initialize with the current timestamp
         result = {"timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        
+
         # Try to get data from each API
         try:
             result["erldc"] = await get_erldc_data()
         except Exception:
             result["erldc"] = None
-            
+
         try:
             result["srldc"] = await get_srldc_data()
         except Exception:
             result["srldc"] = None
-            
+
         try:
             result["nrldc"] = await get_nrldc_data()
         except Exception:
             result["nrldc"] = None
-            
+
         try:
             result["wrldc"] = await get_wrldc_data()
         except Exception:
             result["wrldc"] = None
-            
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to aggregate data: {str(e)}")
 
+
 if __name__ == "__main__":
     import uvicorn
     import os
+
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)

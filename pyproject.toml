@@ -14,3 +14,11 @@ dependencies = [
     "urllib3>=2.3.0",
     "uvicorn>=0.34.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.10",
+]
+
+[tool.ruff]
+line-length = 120
